@@ -4,12 +4,15 @@ This app is for our family to share information privately. It is an Expo / React
 
 ## What works so far
 
+- **Grocery lists (the main screen).** Anyone in the family can create a list and add items. Each item can be tagged with a store (WinCo, Costco, ...) and a quantity, such as "2 gal". Pick a store to see only what to buy there. Untagged items show under "Any store". Tap an item to check it off. Everyone looking at the list sees the check-off right away, along with who got it. Long-press an item to remove it, and use "Clear cart" to remove everything checked.
+- **Stores:** add the stores your family shops at. Owners and Adults can remove them.
+
 - Create an account and sign in with email and password. Tokens are kept in the iOS Keychain or Android Keystore and refresh automatically.
 - Create a family, or join one with an invite code.
 - See the family's members, and switch between families if you belong to more than one.
 - Owners and Adults can create a one-time invite code (Adult, Member or Child) and share it.
 
-Next come the MVP features from the plan: the info vault, shared lists, events and reminders, and announcements.
+Live updates use SignalR (`src/lib/realtime.ts`). Screens still work with pull-to-refresh if the live connection drops, and they reload when it reconnects.
 
 ## Run it
 
@@ -35,6 +38,9 @@ npm run typecheck
 | Path | What it is |
 | --- | --- |
 | `src/app/` | Screens. Every file is a route (Expo Router). |
+| `src/app/home.tsx` | Grocery lists |
+| `src/app/list/[listId].tsx` | One list: items by store, check-off, add item |
+| `src/lib/realtime.ts` | Live updates for a household |
 | `src/lib/api.ts` | API client: adds the token, refreshes it once on 401 |
 | `src/lib/auth.tsx` | Signed-in user, their families, and the current family |
 | `src/lib/tokenStore.ts` | Secure token storage |

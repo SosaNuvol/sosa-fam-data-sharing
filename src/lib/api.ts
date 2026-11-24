@@ -6,6 +6,8 @@ import type { TokenResponse } from './types';
 const BASE_URL: string =
   process.env.EXPO_PUBLIC_API_URL ?? (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? 'http://localhost:5000';
 
+export const API_URL = BASE_URL;
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -22,7 +24,7 @@ export function setSignedOutListener(listener: Listener | null) {
 
 let refreshing: Promise<TokenResponse | null> | null = null;
 
-async function refreshTokens(): Promise<TokenResponse | null> {
+export async function refreshTokens(): Promise<TokenResponse | null> {
   // One refresh at a time: refresh tokens work only once.
   refreshing ??= (async () => {
     const current = await loadTokens();
@@ -56,6 +58,13 @@ async function errorFrom(res: Response): Promise<ApiError> {
     // not JSON
   }
   return new ApiError(res.status, message);
+}
+
+/** A current access token, refreshed if it is about to expire. For the live-update connection. */
+export async function currentAccessToken(): Promise<string> {
+  let tokens = await loadTokens();
+  if (tokens && new Date(tokens.accessTokenExpiresAt).getTime() < Date.now() + 30_000) tokens = await refreshTokens();
+  return tokens?.accessToken ?? '';
 }
 
 /** Calls the API with the stored access token, refreshing it once if it has expired. */
