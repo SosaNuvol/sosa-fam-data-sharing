@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '../../components/Chip';
 import { colors, ErrorText, Muted } from '../../components/ui';
@@ -131,18 +131,40 @@ export default function ListScreen() {
     }
   };
 
-  const remove = (item: GroceryItem) =>
-    Alert.alert(`Remove ${item.name}?`, undefined, [
+  // The item whose store is being changed, while the store picker is open.
+  const [moving, setMoving] = useState<GroceryItem | null>(null);
+
+  const moveTo = async (item: GroceryItem, storeId: string | null) => {
+    setMoving(null);
+    if (item.storeId === storeId) return;
+    const storeName = stores.find((s) => s.id === storeId)?.name ?? null;
+    upsert({ ...item, storeId, storeName });
+    try {
+      upsert(
+        await api<GroceryItem>(`${base}/items/${item.id}`, {
+          method: 'PUT',
+          body: { name: item.name, quantity: item.quantity, unit: item.unit, note: item.note, storeId },
+        }),
+      );
+      setError(null);
+    } catch (e) {
+      upsert(item);
+      setError(e instanceof Error ? e.message : 'Could not move the item.');
+    }
+  };
+
+  // Press and hold an item: move it to another store, or remove it.
+  const itemMenu = (item: GroceryItem) =>
+    Alert.alert(item.name, item.storeName ? `Buy at ${item.storeName}` : 'Any store', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          setDetail((d) => (d ? { ...d, items: d.items.filter((i) => i.id !== item.id) } : d));
-          await api(`${base}/items/${item.id}`, { method: 'DELETE' }).catch(load);
-        },
-      },
+      ...(stores.length ? [{ text: 'Move to store', onPress: () => setMoving(item) }] : []),
+      { text: 'Remove', style: 'destructive', onPress: () => remove(item) },
     ]);
+
+  const remove = async (item: GroceryItem) => {
+    setDetail((d) => (d ? { ...d, items: d.items.filter((i) => i.id !== item.id) } : d));
+    await api(`${base}/items/${item.id}`, { method: 'DELETE' }).catch(load);
+  };
 
   const clearChecked = () =>
     Alert.alert('Remove everything in the cart?', 'Checked items are removed from the list for everyone.', [
@@ -229,7 +251,7 @@ export default function ListScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => toggle(item)}
-            onLongPress={() => remove(item)}
+            onLongPress={() => itemMenu(item)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: item.isChecked }}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderColor: colors.border }}
@@ -266,6 +288,40 @@ export default function ListScreen() {
         )}
       />
 
+      <Modal visible={moving !== null} transparent animationType="fade" onRequestClose={() => setMoving(null)}>
+        <Pressable onPress={() => setMoving(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }}>
+          <Pressable style={{ backgroundColor: '#fff', borderRadius: 14, padding: 16, gap: 4 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 }}>
+              {moving ? `Move ${moving.name} to` : ''}
+            </Text>
+            {[{ id: null as string | null, name: 'Any store' }, ...stores].map((s) => {
+              const selected = moving?.storeId === s.id;
+              return (
+                <Pressable
+                  key={s.id ?? 'any'}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => moving && moveTo(moving, s.id)}
+                  style={({ pressed }) => ({
+                    paddingVertical: 12,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    backgroundColor: selected ? colors.surface : pressed ? colors.surface : '#fff',
+                  })}
+                >
+                  <Text style={{ fontSize: 16, color: selected ? colors.primary : colors.text, fontWeight: selected ? '700' : '400' }}>
+                    {s.name}
+                    {selected ? '  ✓' : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={() => setMoving(null)} style={{ paddingVertical: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 16, color: colors.muted }}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
