@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '../../components/Chip';
 import { colors, ErrorText, Muted } from '../../components/ui';
@@ -151,11 +151,23 @@ export default function ListScreen() {
     ]);
 
   const hasChecked = detail?.items.some((i) => i.isChecked);
-  // Android draws the app under its navigation bar (edge-to-edge), so keep the add row above it.
+  // Android draws the app edge-to-edge: the window doesn't shrink for the navigation bar or the
+  // keyboard, so lift the add row by whichever covers the bottom of the screen.
   const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  const bottomSpace = Math.max(insets.bottom, keyboardHeight);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#fff' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#fff' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
       <Stack.Screen
         options={{
           title: detail?.list.name ?? 'List',
@@ -230,7 +242,7 @@ export default function ListScreen() {
         )}
       />
 
-      <View style={{ borderTopWidth: 1, borderColor: colors.border, padding: 12, paddingBottom: 12 + insets.bottom, gap: 8 }}>
+      <View style={{ borderTopWidth: 1, borderColor: colors.border, padding: 12, paddingBottom: 12 + (Platform.OS === 'android' ? bottomSpace : insets.bottom), gap: 8 }}>
         <ErrorText message={error} />
         {stores.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
