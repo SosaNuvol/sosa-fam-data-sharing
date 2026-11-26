@@ -1,6 +1,6 @@
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { Chip } from '../components/Chip';
 import { Button, colors, ErrorText, Muted, Title } from '../components/ui';
 import { api } from '../lib/api';
@@ -62,6 +62,25 @@ export default function Home() {
     }
   };
 
+  const confirmDelete = (list: GroceryList) => {
+    Alert.alert(`Delete "${list.name}"?`, 'The list and all its items are removed for everyone in the family.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api(`/households/${current.householdId}/grocery-lists/${list.id}`, { method: 'DELETE' });
+            setLists((all) => all.filter((l) => l.id !== list.id));
+            setError(null);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not delete the list.');
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <FlatList
       style={{ backgroundColor: '#fff' }}
@@ -99,12 +118,14 @@ export default function Home() {
             </View>
           </View>
           <ErrorText message={error} />
+          {lists.length > 0 && <Muted>Press and hold a list to delete it.</Muted>}
         </View>
       }
       ListEmptyComponent={loading ? undefined : <Muted>No lists yet. Create one and share it with the family.</Muted>}
       renderItem={({ item }) => (
         <Pressable
           onPress={() => router.push({ pathname: '/list/[listId]', params: { listId: item.id } })}
+          onLongPress={() => confirmDelete(item)}
           style={({ pressed }) => ({
             padding: 16,
             borderRadius: 12,

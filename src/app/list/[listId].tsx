@@ -1,6 +1,7 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, SectionList, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '../../components/Chip';
 import { colors, ErrorText, Muted } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -150,9 +151,11 @@ export default function ListScreen() {
     ]);
 
   const hasChecked = detail?.items.some((i) => i.isChecked);
+  // Android draws the app under its navigation bar (edge-to-edge): keep the end of the list clear of it.
+  const insets = useSafeAreaInsets();
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#fff' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
       <Stack.Screen
         options={{
           title: detail?.list.name ?? 'List',
@@ -176,12 +179,48 @@ export default function ListScreen() {
         </View>
       )}
 
+      <View style={{ borderBottomWidth: 1, borderColor: colors.border, padding: 12, gap: 8 }}>
+        <ErrorText message={error} />
+        {stores.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
+            <Muted>Buy at:</Muted>
+            <Chip label="Any store" selected={addStoreId === null} onPress={() => setNewStoreId(null)} />
+            {stores.map((s) => (
+              <Chip key={s.id} label={s.name} selected={addStoreId === s.id} onPress={() => setNewStoreId(s.id)} />
+            ))}
+          </ScrollView>
+        )}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Add an item"
+            placeholderTextColor={colors.muted}
+            onSubmitEditing={add}
+            returnKeyType="done"
+            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.text }}
+          />
+          <TextInput
+            value={qty}
+            onChangeText={setQty}
+            placeholder="Qty"
+            placeholderTextColor={colors.muted}
+            onSubmitEditing={add}
+            style={{ width: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.text }}
+          />
+          <Pressable onPress={add} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Add</Text>
+          </Pressable>
+        </View>
+      </View>
+
       <SectionList
         sections={sections}
         keyExtractor={(i) => i.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 + insets.bottom }}
+        keyboardShouldPersistTaps="handled"
         stickySectionHeadersEnabled={false}
-        ListEmptyComponent={detail ? <Muted>Nothing on this list yet. Add the first item below.</Muted> : undefined}
+        ListEmptyComponent={detail ? <Muted>Nothing on this list yet. Add the first item above.</Muted> : undefined}
         renderSectionHeader={({ section }) => (
           <Text style={{ fontSize: 14, fontWeight: '700', color: colors.muted, marginTop: 16, marginBottom: 4, textTransform: 'uppercase' }}>
             {section.title}
@@ -227,40 +266,6 @@ export default function ListScreen() {
         )}
       />
 
-      <View style={{ borderTopWidth: 1, borderColor: colors.border, padding: 12, gap: 8 }}>
-        <ErrorText message={error} />
-        {stores.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
-            <Muted>Buy at:</Muted>
-            <Chip label="Any store" selected={addStoreId === null} onPress={() => setNewStoreId(null)} />
-            {stores.map((s) => (
-              <Chip key={s.id} label={s.name} selected={addStoreId === s.id} onPress={() => setNewStoreId(s.id)} />
-            ))}
-          </ScrollView>
-        )}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Add an item"
-            placeholderTextColor={colors.muted}
-            onSubmitEditing={add}
-            returnKeyType="done"
-            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.text }}
-          />
-          <TextInput
-            value={qty}
-            onChangeText={setQty}
-            placeholder="Qty"
-            placeholderTextColor={colors.muted}
-            onSubmitEditing={add}
-            style={{ width: 80, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: colors.text }}
-          />
-          <Pressable onPress={add} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Add</Text>
-          </Pressable>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
