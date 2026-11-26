@@ -1,8 +1,9 @@
 import { Redirect } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, Switch, Text, View } from 'react-native';
 import { Button, colors, ErrorText, Field, Muted, Screen, Title } from '../components/ui';
 import { useAuth } from '../lib/auth';
+import { loadSignInPrefs } from '../lib/tokenStore';
 
 export default function SignIn() {
   const { status, signIn, register } = useAuth();
@@ -12,6 +13,17 @@ export default function SignIn() {
   const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // Pre-fill the last choice of "Remember me" and, if it was on, the email.
+  useEffect(() => {
+    loadSignInPrefs()
+      .then((prefs) => {
+        setRememberMe(prefs.rememberMe);
+        setEmail((current) => current || prefs.email);
+      })
+      .catch(() => {});
+  }, []);
 
   if (status === 'signedIn') return <Redirect href="/" />;
 
@@ -19,7 +31,7 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'signIn') await signIn(email.trim(), password);
+      if (mode === 'signIn') await signIn(email.trim(), password, rememberMe);
       else await register(email.trim(), password, displayName.trim());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -52,6 +64,19 @@ export default function SignIn() {
           autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
           placeholder={mode === 'register' ? 'At least 10 characters' : undefined}
         />
+        {mode === 'signIn' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 15, color: colors.text }} onPress={() => setRememberMe(!rememberMe)}>
+              Remember me
+            </Text>
+            <Switch
+              value={rememberMe}
+              onValueChange={setRememberMe}
+              accessibilityLabel="Remember me"
+              trackColor={{ true: colors.primary }}
+            />
+          </View>
+        )}
         <ErrorText message={error} />
         <Button title={mode === 'signIn' ? 'Sign in' : 'Create account'} onPress={submit} busy={busy} />
         <Pressable onPress={() => setMode(mode === 'signIn' ? 'register' : 'signIn')}>
