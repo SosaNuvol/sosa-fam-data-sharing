@@ -48,3 +48,16 @@ export async function saveSignInPrefs(rememberMe: boolean, email: string): Promi
   if (rememberMe) await SecureStore.setItemAsync(EMAIL_KEY, email);
   else await SecureStore.deleteItemAsync(EMAIL_KEY);
 }
+
+// An invite code from a link, kept until the person has signed in or created an account.
+const INVITE_KEY = 'sosafam.pendingInvite';
+
+export async function savePendingInvite(code: string): Promise<void> {
+  await SecureStore.setItemAsync(INVITE_KEY, code);
+}
+
+export async function takePendingInvite(): Promise<string | null> {
+  const code = await SecureStore.getItemAsync(INVITE_KEY);
+  if (code) await SecureStore.deleteItemAsync(INVITE_KEY);
+  return code;
+}

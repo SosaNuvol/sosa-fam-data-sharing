@@ -8,7 +8,7 @@ import type { Household } from '../lib/types';
 
 /** Create a new family, or join one with an invite code. */
 export default function Welcome() {
-  const { status, me, refresh, signOut } = useAuth();
+  const { status, me, refresh, signOut, inviteError } = useAuth();
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
@@ -38,6 +38,7 @@ export default function Welcome() {
       <Screen>
         <Title>Hi{me?.displayName ? `, ${me.displayName}` : ''}</Title>
         <Muted>Join your family with the code someone sent you, or start a new family.</Muted>
+        <ErrorText message={inviteError} />
 
         <Field label="Invite code" value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="K7QM-2XPA" />
         <Button title="Join family" onPress={() => run('join')} busy={busy === 'join'} />

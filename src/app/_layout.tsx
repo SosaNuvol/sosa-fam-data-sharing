@@ -8,6 +8,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShadowVisible: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="join" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ title: 'Sign in', headerBackVisible: false }} />
         <Stack.Screen name="welcome" options={{ title: 'Your family', headerBackVisible: false }} />
         <Stack.Screen name="home" options={{ title: 'Groceries', headerBackVisible: false }} />

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError, setSignedOutListener } from './api';
-import { clearTokens, loadTokens, saveSignInPrefs, saveTokens } from './tokenStore';
-import type { Me, Membership, TokenResponse } from './types';
+import { clearTokens, loadTokens, saveSignInPrefs, saveTokens, takePendingInvite } from './tokenStore';
+import type { Household, Me, Membership, TokenResponse } from './types';
 
 interface AuthState {
   /** 'unreachable': you have a saved login, but the server could not be reached at startup. */
@@ -17,6 +17,10 @@ interface AuthState {
   selectHousehold(householdId: string): void;
   /** Tries the saved login again after 'unreachable'. */
   retry(): Promise<void>;
+  /** Joins the family of an invite link saved before sign-in, if any. */
+  joinPendingInvite(): Promise<void>;
+  /** Why joining from an invite link failed, shown on the welcome screen. */
+  inviteError: string | null;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -25,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthState['status']>('loading');
   const [me, setMe] = useState<Me | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const refresh = useCallback(async (selectHouseholdId?: string) => {
     const next = await api<Me>('/me');
@@ -59,6 +64,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('unreachable');
   }, [refresh, signOutLocal]);
 
+  // Accepts an invite code saved from a link. Runs before the first refresh after sign-in, so the
+  // app opens straight on the new family. Returns the family's id when it joined one.
+  const acceptPendingInvite = useCallback(async (): Promise<string | undefined> => {
+    const code = await takePendingInvite();
+    if (!code) return undefined;
+    try {
+      const household = await api<Household>('/invites/accept', { method: 'POST', body: { code } });
+      setInviteError(null);
+      return household.id;
+    } catch (e) {
+      // 409: already in that family, so there is nothing to fix.
+      if (!(e instanceof ApiError && e.status === 409)) {
+        setInviteError(`Could not join with code ${code}: ${e instanceof Error ? e.message : 'something went wrong.'}`);
+      }
+      return undefined;
+    }
+  }, []);
+
+  const joinPendingInvite = useCallback(async () => {
+    const householdId = await acceptPendingInvite();
+    if (householdId) await refresh(householdId);
+  }, [acceptPendingInvite, refresh]);
+
   useEffect(() => {
     setSignedOutListener(signOutLocal);
     restore();
@@ -74,14 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tokens = await api<TokenResponse>('/auth/login', { method: 'POST', body: { email, password }, auth: false });
         await saveTokens(tokens, rememberMe);
         await saveSignInPrefs(rememberMe, email);
-        await refresh();
+        await refresh(await acceptPendingInvite());
       },
       async register(email, password, displayName) {
         await saveTokens(
           await api<TokenResponse>('/auth/register', { method: 'POST', body: { email, password, displayName }, auth: false }),
           true,
         );
-        await refresh();
+        await refresh(await acceptPendingInvite());
       },
       async signOut() {
         const tokens = await loadTokens();
@@ -94,8 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       selectHousehold: setCurrentId,
       retry: restore,
+      joinPendingInvite,
+      inviteError,
     }),
-    [status, me, currentId, refresh, signOutLocal, restore],
+    [status, me, currentId, refresh, signOutLocal, restore, acceptPendingInvite, joinPendingInvite, inviteError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

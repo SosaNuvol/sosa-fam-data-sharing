@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, Switch, Text, View } from 'react-native';
 import { Button, colors, ErrorText, Field, Muted, Screen, Title } from '../components/ui';
@@ -7,7 +7,9 @@ import { loadSignInPrefs } from '../lib/tokenStore';
 
 export default function SignIn() {
   const { status, signIn, register } = useAuth();
-  const [mode, setMode] = useState<'signIn' | 'register'>('signIn');
+  // From an invite link: most invited people are new, so start on "Create account".
+  const invited = useLocalSearchParams<{ invited?: string }>().invited === '1';
+  const [mode, setMode] = useState<'signIn' | 'register'>(invited ? 'register' : 'signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -44,7 +46,11 @@ export default function SignIn() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Screen>
         <Title>{mode === 'signIn' ? 'Welcome back' : 'Create your account'}</Title>
-        <Muted>A private place for your family's important information.</Muted>
+        <Muted>
+          {invited
+            ? "You've been invited to join a family. Create your account, or sign in if you already have one, and you'll join automatically."
+            : "A private place for your family's important information."}
+        </Muted>
         {mode === 'register' && (
           <Field label="Your name" value={displayName} onChangeText={setDisplayName} autoComplete="name" placeholder="e.g. Andres" />
         )}
