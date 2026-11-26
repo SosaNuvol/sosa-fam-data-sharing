@@ -34,11 +34,14 @@ export async function refreshTokens(): Promise<TokenResponse | null> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: current.refreshToken }),
     });
-    if (!res.ok) {
+    if (res.status === 400 || res.status === 401 || res.status === 403) {
+      // The refresh token was rejected: the login is over.
       await clearTokens();
       onSignedOut?.();
       return null;
     }
+    // A server error keeps the saved login so the next try can succeed.
+    if (!res.ok) throw await errorFrom(res);
     const next = (await res.json()) as TokenResponse;
     await saveTokens(next);
     return next;
