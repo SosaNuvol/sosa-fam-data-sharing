@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 import { Button, colors, ErrorText, Muted, Screen, Title } from '../components/ui';
-import { api } from '../lib/api';
+import { api, API_URL } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { canManageMembers, type CreatedInvite } from '../lib/types';
 
@@ -36,7 +36,9 @@ export default function Invite() {
 
   if (invite) {
     const expires = new Date(invite.expiresAt).toLocaleDateString();
-    const message = `Join ${current.householdName} on Sosa Fam with code ${invite.code} (works once, until ${expires}).`;
+    // An https link is tappable in every messaging app; the API's /join page opens the app.
+    const link = `${API_URL}/join/${invite.code.replace(/-/g, '')}`;
+    const message = `Join ${current.householdName} on Sosa Fam: ${link}\n\nOr enter code ${invite.code} in the app. Works once, until ${expires}.`;
     return (
       <Screen>
         <Title>Invite code</Title>
@@ -47,7 +49,7 @@ export default function Invite() {
           Works once for one person, as {invite.role.toLowerCase()}, until {expires}. You will not see this code again after
           closing.
         </Muted>
-        <Button title="Share code" onPress={() => Share.share({ message })} />
+        <Button title="Share invite link" onPress={() => Share.share({ message })} />
       </Screen>
     );
   }
